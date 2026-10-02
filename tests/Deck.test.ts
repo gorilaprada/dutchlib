@@ -1,4 +1,4 @@
-import Deck from "./Deck.js";
+import Deck from "../src/Deck.ts";
 import { describe, expect, beforeEach, test } from "vitest";
 
 describe("Deck", () => {

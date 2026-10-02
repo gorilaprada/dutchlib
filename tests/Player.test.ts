@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach } from "vitest";
-import Player from "./Player.js";
-import type { Card } from "./types.ts";
+import Player from "../src/Player.js";
+import type { Card } from "../src/types.ts";
 
 describe("Player", () => {
   let player: Player;
