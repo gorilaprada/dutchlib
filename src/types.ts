@@ -1,10 +1,28 @@
-export type Suits = "♤" | "♡" | "♢" | "♧";
+export const SUITS = [ "♤" , "♡" , "♢" , "♧" ] as const;
+export type Suit = (typeof SUITS)[number];
 
-export type Card = {
+export type Card = Readonly<{
   id: string;
-  suit: Suits;
+  suit: Suit;
   value: number;
-  isFaceUp: boolean;
+}>;
+
+export type Deck = Readonly<{
+  drawPile: readonly Card[];
+  discardPile: readonly Card[];
+}>;
+
+export type dealCardResult = Readonly<{
+  dealtCards: readonly Card[],
+  deck: Deck;
+}>;
+
+export type Player = {
+  id: number;
+  hand: Card[];
+  drawnCard: Card | null;
+  score: number;
+  isReady: boolean;
 }
 
 export interface Result {

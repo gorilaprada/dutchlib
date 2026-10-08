@@ -1,5 +1,5 @@
-import Player from './Player.js'
-import Deck from './Deck.js'
+import Player from './Player.ts'
+import Deck from './deck.ts'
 import type { Result, DrawResult, Phase, Card } from "./types.ts";
 
 export default class GameState {
