@@ -1,138 +1,39 @@
-import Player from './Player.ts'
-import Deck from './deck.ts'
-import type { Result, DrawResult, Phase, Card } from "./types.ts";
+import type { GameState, GameResult } from "./types.ts";
+import { ok, fail } from "./result.ts";
+import { drawCard } from "./deck.ts";
+import { addToDrawnCard } from "./player.ts";
 
-export default class GameState {
-  deck: Deck = new Deck();
-  discardPile: Card[] = [];
-  players: Map<string, Player> = new Map();
-  playerOrder: string[] = [];
-  turnIndex: number = 0;
-  fromDiscard: boolean = false;
-  phase: Phase = "drawing";
-  pendingPowerOwner: string | null = null;
-  canStack: boolean = true;
-  maxPlayers: number = 4;
+export function drawFrom(state: GameState, seat: number, drawFrom: "drawPile" | "discardPile", random: () => number): GameResult {
+  const player = state.players.get(seat);
+  if (!player) return fail("Player not found");
+  if (seat !== state.turnIndex) return fail("Not your turn");
 
-  // Game automated methods
+  // Move specific checks
+  if (state.phase !== "drawing") return fail("Not drawing right now");
+  if (drawFrom === "discardPile" && state.deck.discardPile.length === 0) return fail("Discard Pile is empty");
 
-  startGame(): void {
-    this.playerOrder = Array.from(this.players.keys());
-    this.deck.build();
-    this.deck.shuffle();
-    this.dealCards();
-    this.initiateDiscardPile();
+  const result = drawCard(state.deck, drawFrom, random);
+  if (!result) return fail("Cannot draw");
+  
+  const drawnCard = result.dealtCards[0];
+  if (!drawnCard) return fail("Nothing to draw");
+
+  const players = new Map(state.players);
+  players.set(seat, addToDrawnCard(player, drawnCard))
+
+  const newState: GameState = {
+    ...state,
+    deck: result.deck,
+    players,
+    phase: "deciding",
+    fromDiscard: drawFrom === "discardPile",
+    canStack: true,
   };
 
-  addPlayer(socketId: string, name: string): Result {
-    // Validation
-    if (this.players.size >= this.maxPlayers) {
-      return { error: "Lobby full" }
-    };
+  return ok(newState);
+}
 
-    // Logic
-    const newPlayer = new Player(socketId, name)
-    this.players.set(socketId, newPlayer)
-
-    // Function output
-    return { error: null };
-  }
-
-  dealCards(): Result {
-    // Logic
-    const players = Array.from(this.players.values())
-
-    players.forEach(player => {
-      const hand = this.deck.dealHand();
-      player.addCards(hand);
-    })
-
-    // Function output
-    return { error: null };
-  }
-
-  initiateDiscardPile(): Result {
-    try {
-      // Logic
-      const firstCard = this.deck.deck.pop();
-      if (!firstCard) {
-        throw new Error("Error: with deck initiation");
-      }
-
-      firstCard.isFaceUp = true;
-      this.discardPile.push(firstCard);
-
-      // Function output
-      return { error: null };
-    } catch (err) {
-      if (err instanceof Error) {
-        return { error: err.message };
-      }
-    }
-
-    return { error: "Unknown error with initiateDiscardPile" };
-  }
-
-  cardMemorization(): Result {
-    // Logic
-    const players = Array.from(this.players.values())
-
-    players.forEach((player: Player): void => {
-      player.setCardVisibility([0, 1], true)
-    });
-
-    // Function output
-    return { error: null }
-  }
-
-  // Player Methods
-
-  drawFrom(socketId: string, drawFrom: "deck" | "discardPile"): DrawResult {
-    try {
-      // Set values
-      const player = this.players.get(socketId);
-      const activePlayerId = this.playerOrder[this.turnIndex];
-
-      // Validation
-      if (!player) throw new Error("Player not found");
-      if (socketId !== activePlayerId || this.phase !== "drawing") {
-        throw new Error("Not your turn!");
-      }
-
-
-      // Logic (changes made to the game state)
-      let drawnCard;
-      if (drawFrom === "discardPile") {
-        drawnCard = this.discardPile.pop()
-        this.fromDiscard = true;
-        console.log("fromDiscard = true");
-      } else {
-        drawnCard = this.deck.deck.pop();
-      }
-
-      if (!drawnCard) throw new Error(`Cannot draw from empty ${drawFrom}`);
-
-      player.addToDrawnCard(drawnCard);
-
-      // Side effects of move
-      this.canStack = true;
-      this.phase = "deciding";
-
-      // Function output
-      const topDiscardCard = this.discardPile.at(-1) ?? null;
-      return {
-        data: { card: drawnCard, discardTop: topDiscardCard },
-        error: null
-      };
-    } catch (err) {
-      if (err instanceof Error) {
-        return { error: err.message };
-      }
-    }
-
-    return { error: "Unknown error in drawFrom" };
-  }
-
+/*
   switchCards(socketId: string, handIndex: number): Result {
     try {
       // Set values
@@ -361,3 +262,4 @@ export default class GameState {
     return { error: "Unknown error in drawFrom" };
   }
 }
+ */

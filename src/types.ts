@@ -1,5 +1,7 @@
 export const SUITS = [ "♤" , "♡" , "♢" , "♧" ] as const;
 export type Suit = (typeof SUITS)[number];
+export const PLAYERS = [0, 1, 2, 3] as const;
+export type Players= (typeof PLAYERS)[number];
 
 export type Card = Readonly<{
   id: string;
@@ -12,28 +14,32 @@ export type Deck = Readonly<{
   discardPile: readonly Card[];
 }>;
 
-export type dealCardResult = Readonly<{
+export type DealCardResult = Readonly<{
   dealtCards: readonly Card[],
   deck: Deck;
 }>;
 
 export type Player = {
-  id: number;
+  seat: number;
   hand: Card[];
   drawnCard: Card | null;
   score: number;
   isReady: boolean;
 }
 
-export interface Result {
-  error: string | null;
-}
-
-export interface DrawResult extends Result {
-  data?: {
-    card: Card,
-    discardTop: Card | null;
-  }
-}
-
 export type Phase = "drawing" | "deciding" | "power_jack" | "power_queen";
+
+export type GameState = Readonly<{
+  deck: Deck;
+  players: ReadonlyMap<number, Player>;
+  turnIndex: number;
+  fromDiscard: boolean;
+  phase: Phase;
+  pendingPowerOwner: number | null;
+  canStack: boolean;
+  maxPlayers: number;
+}>;
+
+export type GameResult = 
+  { ok: false, error: string } |
+  { ok: true, state: GameState };

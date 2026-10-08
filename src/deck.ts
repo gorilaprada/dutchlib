@@ -1,4 +1,4 @@
-import { SUITS, type Card, type Deck, type dealCardResult } from "./types.ts";
+import { SUITS, type Card, type Deck, type DealCardResult } from "./types.ts";
 
 export function buildDeck(): Deck {
   const drawPile = [];
@@ -54,12 +54,12 @@ function reshuffle(deck: Deck, random: () => number = Math.random): Deck {
   return newDeck;
 };
 
-export function dealCards(deck: Deck, cardNumber: number, random: () => number = Math.random): dealCardResult {
+export function dealCards(deck: Deck, cardNumber: number, random: () => number = Math.random): DealCardResult | null {
   // Automatic reshuffle cards if number too low
   if (deck.drawPile.length < cardNumber || cardNumber < 1) {
     deck = reshuffle(deck, random);
     if (deck.drawPile.length < cardNumber) {
-      throw new RangeError("Not enough cards in drawPile to deal");
+      return null;
     }
   };
 
@@ -69,7 +69,7 @@ export function dealCards(deck: Deck, cardNumber: number, random: () => number =
     drawPile: deck.drawPile.slice(0, -cardNumber),
   };
 
-  const result: dealCardResult = {
+  const result: DealCardResult = {
     dealtCards,
     deck: newDeck,
   };
@@ -84,3 +84,23 @@ export function addToDiscardPile(deck: Deck, card: Card): Deck {
   };
   return newDeck;
 };
+
+export function drawCard(deck: Deck, from: "drawPile" | "discardPile", random: () => number): DealCardResult | null {
+  if (from !== "drawPile" && from !== "discardPile") return null;
+  if (from === "drawPile") {
+    return dealCards(deck, 1, random);
+  }
+
+  const drawnCard = deck.discardPile.slice(-1);
+  const newDeck: Deck = {
+    ...deck,
+    discardPile: deck.discardPile.slice(0, -1),
+  };
+
+  const result: DealCardResult = {
+    dealtCards: drawnCard,
+    deck: newDeck,
+  };
+
+  return result;
+}

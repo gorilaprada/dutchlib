@@ -2,9 +2,9 @@ import type { Player, Card } from "./types.ts";
 
 const STARTING_SCORE = 50;
 
-export function initPlayer(id: number): Player {
+export function initPlayer(seat: number): Player {
   return {
-    id,
+    seat,
     hand: [],
     drawnCard: null,
     score: STARTING_SCORE,
