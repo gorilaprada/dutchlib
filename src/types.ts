@@ -27,17 +27,18 @@ export type Player = {
   isReady: boolean;
 }
 
-export type Phase = "drawing" | "deciding" | "power_jack" | "power_queen";
+export type Phase = "memorizing" | "drawing" | "deciding" | "power_jack" | "power_queen";
 
+  // TODO: Keep from discard? 
 export type GameState = Readonly<{
   deck: Deck;
   players: ReadonlyMap<number, Player>;
   turnIndex: number;
   fromDiscard: boolean;
   phase: Phase;
-  pendingPowerOwner: number | null;
   canStack: boolean;
   maxPlayers: number;
+  peek: ReadonlyMap<number, number> | null;
 }>;
 
 export type GameResult = 

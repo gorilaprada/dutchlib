@@ -1,3 +1,4 @@
+import { drawCard } from "./deck.ts";
 import type { Player, Card } from "./types.ts";
 
 const STARTING_SCORE = 50;
@@ -19,7 +20,29 @@ export function addCards(player: Player, cards: readonly Card[]): Player {
   };
 }
 
-export function addToDrawnCard(player: Player, card: Card): Player {
+export function removeCard(player: Player, handIndex: number): Player {
+  const newHand = [...player.hand];
+  newHand.splice(handIndex, 1);
+  return {
+    ...player,
+    hand: newHand,
+  }
+}
+
+export function switchDrawnToHand(player: Player, handIndex: number): Player {
+  if (!player.drawnCard) {
+    throw new Error("Player has not drawn a Card");
+  }
+
+  const newHand = [...player.hand];
+  newHand[handIndex] = player.drawnCard;
+  return {
+    ...player,
+    hand: newHand,
+  }
+}
+
+export function addDrawnCard(player: Player, card: Card): Player {
   if (player.drawnCard) {
     throw new Error("Player has already drawn a Card");
   }
@@ -28,4 +51,11 @@ export function addToDrawnCard(player: Player, card: Card): Player {
     ...player,
     drawnCard: card,
   };
+}
+
+export function removeDrawnCard(player: Player): Player {
+  return {
+    ...player,
+    drawnCard: null,
+  }
 }

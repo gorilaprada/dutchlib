@@ -11,9 +11,9 @@ export function initGameState(): GameState {
     turnIndex: 0,
     fromDiscard: false,
     phase: "drawing",
-    pendingPowerOwner: null,
     canStack: true,
     maxPlayers: 4,
+    peek: null,
   };
 
   return gameState;
@@ -55,6 +55,7 @@ export function dealCardsStart(state: GameState, random: () => number = Math.ran
     ...state,
     deck,
     players,
+    phase: "memorizing"
   };
 
   return ok(newState);

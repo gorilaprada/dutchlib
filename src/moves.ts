@@ -1,7 +1,7 @@
-import type { GameState, GameResult } from "./types.ts";
+import type { GameState, GameResult, Card, Phase } from "./types.ts";
 import { ok, fail } from "./result.ts";
-import { drawCard } from "./deck.ts";
-import { addToDrawnCard } from "./player.ts";
+import { drawCard, addToDiscardPile } from "./deck.ts";
+import { addDrawnCard, switchDrawnToHand, removeDrawnCard } from "./player.ts";
 
 export function drawFrom(state: GameState, seat: number, drawFrom: "drawPile" | "discardPile", random: () => number): GameResult {
   const player = state.players.get(seat);
@@ -14,17 +14,17 @@ export function drawFrom(state: GameState, seat: number, drawFrom: "drawPile" | 
 
   const result = drawCard(state.deck, drawFrom, random);
   if (!result) return fail("Cannot draw");
-  
+ 
   const drawnCard = result.dealtCards[0];
   if (!drawnCard) return fail("Nothing to draw");
 
-  const players = new Map(state.players);
-  players.set(seat, addToDrawnCard(player, drawnCard))
+  const newPlayers = new Map(state.players);
+  newPlayers.set(seat, addDrawnCard(player, drawnCard))
 
   const newState: GameState = {
     ...state,
     deck: result.deck,
-    players,
+    players: newPlayers,
     phase: "deciding",
     fromDiscard: drawFrom === "discardPile",
     canStack: true,
@@ -33,63 +33,42 @@ export function drawFrom(state: GameState, seat: number, drawFrom: "drawPile" | 
   return ok(newState);
 }
 
-/*
-  switchCards(socketId: string, handIndex: number): Result {
-    try {
-      // Set values
-      const player = this.players.get(socketId);
-      const activePlayerId = this.playerOrder[this.turnIndex];
+export function switchCards(state: GameState, seat: number, handIndex: number): GameResult {
+  const player = state.players.get(seat);
+  if (!player) return fail("Player not found");
+  if (seat !== state.turnIndex) return fail("Not your turn");
 
-      // Validation
-      if (!player) throw new Error("Player not found");
+  // Move specific checks
+  if (state.phase !== "deciding") return fail("Not deciding right now");
+  if (!player.drawnCard) return fail("No drawn card");
+  const discard = player.hand[handIndex];
+  if (!discard) return fail(`No card at index: ${handIndex}`);
 
-      if (socketId !== activePlayerId) {
-        throw new Error("Not your turn!");
-      }
+  // Logic
+  const newDeck = addToDiscardPile(state.deck, discard);
+  const newPlayers = new Map(state.players);
+  const playerModifications = [
+    switchDrawnToHand,
+    removeDrawnCard,
+  ];
+  const newPlayer = playerModifications.reduce((acc, fn) => fn(acc, handIndex), player);
+  newPlayers.set(seat, newPlayer);
 
-      if (this.phase !== "deciding") {
-        throw new Error("Cannot perform this action because of the phase of the game");
-      }
-
-
-      // Logic
-      const oldCard = player.hand[handIndex];
-      if (!oldCard) throw new Error("No card to switch with");
-      oldCard.isFaceUp = true;
-
-      if (!player.drawnCard) throw new Error("Player has no drawn card");
-      player.drawnCard.isFaceUp = false;
-      player.hand[handIndex] = player.drawnCard;
-
-      this.discardPile.push(oldCard);
-      player.drawnCard = null;
-
-      // Side effects
-      if (oldCard.value === 11) {
-        this.phase = "power_jack";
-        this.pendingPowerOwner = socketId;
-        return { error: null }
-      }
-
-      if (oldCard.value === 12) {
-        this.phase = "power_queen";
-        this.pendingPowerOwner = socketId;
-        return { error: null }
-      }
-
-      this.phase = "drawing";
-      this.turnIndex = (this.turnIndex + 1) % this.playerOrder.length
-
-      // Function output
-      return { error: null };
-    } catch (err) {
-      if (err instanceof Error) {
-        return { error: err.message };
-      }
-    }
-    return { error: "Unknown error in drawFrom" };
+  const newPhase = phaseAfterCard(discard);
+  const newState: GameState = {
+    ...state,
+    deck: newDeck,
+    players: newPlayers,
+    phase: newPhase,
+    turnIndex: newPhase === "drawing" ? nextTurn(state)  : state.turnIndex,
+    fromDiscard: false,
+    canStack: true,
   }
 
+  return ok(newState);
+}
+
+/*
   discardCard(socketId: string): Result {
     try {
       // Set values
@@ -263,3 +242,16 @@ export function drawFrom(state: GameState, seat: number, drawFrom: "drawPile" | 
   }
 }
  */
+
+// ================ Helper functions ==========================
+function phaseAfterCard(card: Card): Phase {
+  switch (card.value) { 
+    case 11: return "power_jack";
+    case 12: return "power_queen";
+    default: return "drawing";
+  }
+}
+
+function nextTurn(state: GameState): number {
+  return (state.turnIndex + 1) % state.players.size;
+}
