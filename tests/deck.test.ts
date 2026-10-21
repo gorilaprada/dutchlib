@@ -46,6 +46,7 @@ describe("Deck", () => {
 
   test("dealCards() returns exactly 4 cards and removes them from the end of the deck", () => {
     const result = dealCards(gameDeck, 4);
+    if (!result) throw new Error("expected a result");
     expect(result.dealtCards.length).toBe(4);
     expect(result.deck.drawPile.length).toBe(48);
     expect(result.dealtCards).toEqual(gameDeck.drawPile.slice(-4));
@@ -53,6 +54,7 @@ describe("Deck", () => {
 
   test("addToDiscardPile adds one card to the DiscardPile", () => {
     const result = dealCards(gameDeck, 1);
+    if (!result) throw new Error("expected a result");
 
     const dealtCard = result.dealtCards[0];
     const newDeck = addToDiscardPile(result.deck, dealtCard!);
@@ -65,6 +67,7 @@ describe("Deck", () => {
   test("dealCards reshuffles automatically", () => {
     // Setting all the cards in discardPile
     const result = dealCards(gameDeck, 49, () => 0);
+    if (!result) throw new Error("expected a result");
     const newDeck = result.dealtCards.reduce(
       (deck, card) => addToDiscardPile(deck, card),
       result.deck,
@@ -74,6 +77,8 @@ describe("Deck", () => {
     expect(newDeck.drawPile.length).toBe(3);
 
     const result2 = dealCards(newDeck, 4, () => 0);
+    if (!result2) throw new Error("expected a result");
+
     expect(result2.deck.drawPile.length).toBe(47);
     expect(result2.deck.discardPile.length).toBe(1);
     expect(result2.deck.discardPile.at(-1)).toEqual(newDeck.discardPile.at(-1));

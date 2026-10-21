@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach } from "vitest";
-import { initPlayer, addCards, addToDrawnCard }from "../src/player.js";
+import { initPlayer, addCards, addDrawnCard }from "../src/player.js";
 import type { Card, Player } from "../src/types.ts";
 
 describe("Player", () => {
@@ -18,7 +18,7 @@ describe("Player", () => {
   });
 
   test("initializes with the correct defaults and constructor arguments", () => {
-    expect(player.id).toBe(0);
+    expect(player.seat).toBe(0);
     expect(player.hand).toEqual([]);
     expect(player.drawnCard).toBeNull();
     expect(player.score).toBe(50);
@@ -36,7 +36,7 @@ describe("Player", () => {
 
   test("addToDrawnCard() successfully sets the drawnCard property", () => {
     const drawn: Card = { id: "♤_10", suit: "♤", value: 10 };
-    const newPlayer = addToDrawnCard(player, drawn);
+    const newPlayer = addDrawnCard(player, drawn);
 
     expect(newPlayer.drawnCard).toEqual(drawn);
   });
