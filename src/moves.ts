@@ -1,7 +1,13 @@
 import type { GameState, GameResult, Card, Phase } from "./types.ts";
 import { ok, fail } from "./result.ts";
 import { drawCard, addToDiscardPile } from "./deck.ts";
-import { addDrawnCard, switchDrawnToHand, removeDrawnCard } from "./player.ts";
+import { 
+  addDrawnCard,
+  addCards,
+  switchDrawnToHand,
+  removeDrawnCard,
+  removeCard,
+} from "./player.ts";
 
 export function drawFrom(state: GameState, seat: number, drawFrom: "drawPile" | "discardPile", random: () => number): GameResult {
   const player = state.players.get(seat);
@@ -61,7 +67,6 @@ export function switchCards(state: GameState, seat: number, handIndex: number): 
     players: newPlayers,
     phase: newPhase,
     turnIndex: newPhase === "drawing" ? nextTurn(state)  : state.turnIndex,
-    fromDiscard: false,
     canStack: true,
   }
 
@@ -91,50 +96,58 @@ export function discardCard(state: GameState, seat: number): GameResult {
     players: newPlayers,
     phase: newPhase,
     turnIndex: newPhase === "drawing" ? nextTurn(state)  : state.turnIndex,
-    fromDiscard: false,
     canStack: true,
   }
 
   return ok(newState);
 }
 
-/*
-export function stack(state: GameState, seat: number, handIndex: number): GameResult {
+export function stack(state: GameState, seat: number, handIndex: number, random: () => number): GameResult {
   const player = state.players.get(seat);
   if (!player) return fail("Player not found");
-  if (seat !== state.turnIndex) return fail("Not your turn");
 
   // Move specific checks
-  if (!state.canStack) return fail("Cannot stack right now");
+  if (!state.canStack || state.phase !== "memorizing") return fail("Cannot stack right now");
 
   // Logic
   const stackCard = player.hand[handIndex];
-  const topDiscard = this.discardPile.at(-1);
+  const topDiscard = state.deck.discardPile.at(-1);
+  if (!stackCard || !topDiscard) return fail("Invalid Move");
 
-  // Validation
-  if (!stackCard || !topDiscard) throw new Error("Invalid Move");
 
-  // Logic (changes made to the game state)
-  if (stackCard.value === topDiscard.value && this.canStack === true) {
-    stackCard.isFaceUp = true;
-    this.discardPile.push(stackCard)
+  if (stackCard.value !== topDiscard.value) {
+    const result = drawCard(state.deck, "drawPile", random);
+    if (!result) return fail("Cannot draw");
+ 
+    const drawnCard = result.dealtCards[0];
+    if (!drawnCard) return fail("Nothing to draw");
 
-    player.hand.splice(handIndex, 1);
+    const newPlayers = new Map(state.players);
+    newPlayers.set(seat, addCards(player, [drawnCard]));
 
-    this.canStack = false;
+    return ok({
+      ...state,
+      players: newPlayers,
+      deck: result.deck,
+    });
+  }
 
-    // Function output
-    return { error: null }
+  const newDeck = addToDiscardPile(state.deck, stackCard);
+  const newPlayers = new Map(state.players);
+  const newPlayer = removeCard(player, handIndex);
+  newPlayers.set(seat, newPlayer);
 
-  } else {
-    const penaltyCard = this.deck.deck.pop()
-    if (!penaltyCard) throw new Error("Could not extract a penalty card");
-    player.hand.push(penaltyCard);
-    throw new Error("Cannot discard! A penalty is coming.");
+  const newState: GameState = {
+    ...state,
+    deck: newDeck,
+    players: newPlayers,
+    canStack: false,
   };
 
-};
+  return ok(newState);
+}
 
+/*
   jackPower(socketId: string, player1Id: string, index1: number, player2Id: string, index2: number): Result {
     try {
       // Set values
