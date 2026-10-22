@@ -1,6 +1,7 @@
 import type { GameState, GameResult, Card, Phase } from "./types.ts";
 import { ok, fail } from "./result.ts";
 import { drawCard, addToDiscardPile } from "./deck.ts";
+import { nextTurn } from "./gameState.ts";
 import { 
   addDrawnCard,
   addCards,
@@ -11,12 +12,12 @@ import {
 
 export function drawFrom(state: GameState, seat: number, drawFrom: "drawPile" | "discardPile", random: () => number): GameResult {
   const player = state.players.get(seat);
-  if (!player) return fail("Player not found");
-  if (seat !== state.turnIndex) return fail("Not your turn");
 
-  // Move specific checks
+  // Move checks
+  if (seat !== state.turnIndex) return fail("Not your turn");
   if (state.phase !== "drawing") return fail("Not drawing right now");
   if (drawFrom === "discardPile" && state.deck.discardPile.length === 0) return fail("Discard Pile is empty");
+  if (!player) return fail("Player not found");
 
   const result = drawCard(state.deck, drawFrom, random);
   if (!result) return fail("Cannot draw");
@@ -41,11 +42,11 @@ export function drawFrom(state: GameState, seat: number, drawFrom: "drawPile" | 
 
 export function switchCards(state: GameState, seat: number, handIndex: number): GameResult {
   const player = state.players.get(seat);
-  if (!player) return fail("Player not found");
-  if (seat !== state.turnIndex) return fail("Not your turn");
 
-  // Move specific checks
+  // Move checks
+  if (seat !== state.turnIndex) return fail("Not your turn");
   if (state.phase !== "deciding") return fail("Not deciding right now");
+  if (!player) return fail("Player not found");
   if (!player.drawnCard) return fail("No drawn card");
   const discard = player.hand[handIndex];
   if (!discard) return fail(`No card at index: ${handIndex}`);
@@ -75,11 +76,11 @@ export function switchCards(state: GameState, seat: number, handIndex: number): 
 
 export function discardCard(state: GameState, seat: number): GameResult {
   const player = state.players.get(seat);
-  if (!player) return fail("Player not found");
-  if (seat !== state.turnIndex) return fail("Not your turn");
 
-  // Move specific checks
+  // Move checks
+  if (seat !== state.turnIndex) return fail("Not your turn");
   if (state.phase !== "deciding") return fail("Not deciding right now");
+  if (!player) return fail("Player not found");
   if (!player.drawnCard) return fail("No drawn card");
   if (state.fromDiscard) return fail("Takers keepers");
 
@@ -95,19 +96,19 @@ export function discardCard(state: GameState, seat: number): GameResult {
     deck: newDeck,
     players: newPlayers,
     phase: newPhase,
-    turnIndex: newPhase === "drawing" ? nextTurn(state)  : state.turnIndex,
+    turnIndex: newPhase !== "drawing" ? state.turnIndex : nextTurn(state),
     canStack: true,
-  }
+  };
 
   return ok(newState);
 }
 
 export function stack(state: GameState, seat: number, handIndex: number, random: () => number): GameResult {
   const player = state.players.get(seat);
-  if (!player) return fail("Player not found");
 
-  // Move specific checks
-  if (!state.canStack || state.phase !== "memorizing") return fail("Cannot stack right now");
+  // Move checks
+  if (!state.canStack || state.phase === "memorizing") return fail("Cannot stack right now");
+  if (!player) return fail("Player not found");
 
   // Logic
   const stackCard = player.hand[handIndex];
@@ -147,78 +148,72 @@ export function stack(state: GameState, seat: number, handIndex: number, random:
   return ok(newState);
 }
 
-/*
-  jackPower(socketId: string, player1Id: string, index1: number, player2Id: string, index2: number): Result {
-    try {
-      // Set values
-      const p1 = this.players.get(player1Id);
-      const p2 = this.players.get(player2Id);
+export function jackPower(
+  state: GameState,
+  powerOwnerSeat: number,
+  seat1: number,
+  seat2: number,
+  handIndex1: number,
+  handIndex2: number
+): GameResult {
+  const p1 = state.players.get(seat1), p2 = state.players.get(seat2);
 
-      // Validation
-      if (this.phase !== "power_jack" || this.pendingPowerOwner !== socketId) {
-        throw new Error("Not your power to execute");
-      }
+  // Move checks
+  if (state.phase !== "power_jack" || state.turnIndex !== powerOwnerSeat) return fail("Forbidden move");
+  if (seat1 === seat2) return fail("Cannot switch cards from the same hand");
+  if (!p1 || !p2) return fail("Players not found");
 
-      if (!p1 || !p2 || !p1.hand[index1] || !p2.hand[index2]) {
-        throw new Error("Invalid target cards");
-      }
+  const cardp1 = p1.hand[handIndex1], cardp2 = p2.hand[handIndex2];
+  if (!cardp1 || !cardp2) return fail("Invalid move");
 
-      // Logic (change smade to the state of the game)
-      const temp = p1.hand[index1];
-      p1.hand[index1] = p2.hand[index2];
-      p2.hand[index2] = temp;
+  //Logic
+  const h1 = [...p1.hand];
+  const h2 = [...p2.hand];
+  h1[handIndex1] = cardp2;
+  h2[handIndex2] = cardp1;
 
-      // Side effects
-      this.phase = "drawing";
-      this.pendingPowerOwner = null;
-      this.turnIndex = (this.turnIndex + 1) % this.playerOrder.length;
+  const newPlayers = new Map(state.players);
+  newPlayers.set(seat1, {...p1, hand: h1});
+  newPlayers.set(seat2, {...p2, hand: h2});
 
-      // Function output
-      return { error: null }
-
-    } catch (err) {
-      if (err instanceof Error) {
-        return { error: err.message };
-      }
-    }
-
-    return { error: "Unknown error in drawFrom" };
+  const newState: GameState = {
+    ...state,
+    players: newPlayers,
+    phase: "drawing",
+    turnIndex: nextTurn(state),
   };
 
-  queenPower(socketId: string, targetPlayerId: string, handIndex: number): Result {
-    try {
-      // Validation
-      if (this.phase !== "power_queen" || this.pendingPowerOwner !== socketId) {
-        throw new Error("Not your power to execute");
-      }
-
-      // Set values
-      const targetPlayer = this.players.get(targetPlayerId);
-      if (!targetPlayer) throw new Error("Target player not found");
-      const card = targetPlayer.hand[handIndex];
-
-      // Logic (changes made to the game state)
-      if (!card) throw new Error("Target player has no card at that index");
-      card.isFaceUp = true;
-
-      // Side effects
-      this.phase = "drawing";
-      this.pendingPowerOwner = null;
-      this.turnIndex = (this.turnIndex + 1) % this.playerOrder.length;
-
-      // Function output
-      return { error: null }
-
-    } catch (err) {
-      if (err instanceof Error) {
-        return { error: err.message };
-      }
-    }
-
-    return { error: "Unknown error in drawFrom" };
-  }
+  return ok(newState);
 }
- */
+
+export function queenPower(
+  state: GameState,
+  seat: number,
+  targetSeat: number,
+  handIndex: number,
+): GameResult {
+  const player = state.players.get(seat);
+  const target = state.players.get(targetSeat);
+
+  // Move checks
+  if (seat !== state.turnIndex) return fail("Forbidden move");
+  if (state.phase !== "power_queen") return fail("No queen power to execute");
+  if (!player) return fail("Player not found");
+  if (!target?.hand[handIndex]) return fail("Invalid target card");
+
+  // Logic
+  const newState: GameState = {
+    ...state,
+    phase: "peeking",
+    peek: {
+      peeker: seat,
+      targetSeat,
+      handIndex,
+    }
+  };
+
+  return ok(newState);
+}
 
 // ================ Helper functions ==========================
 function phaseAfterCard(card: Card): Phase {
@@ -227,8 +222,4 @@ function phaseAfterCard(card: Card): Phase {
     case 12: return "power_queen";
     default: return "drawing";
   }
-}
-
-function nextTurn(state: GameState): number {
-  return (state.turnIndex + 1) % state.players.size;
 }

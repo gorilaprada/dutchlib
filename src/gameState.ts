@@ -61,6 +61,18 @@ export function dealCardsStart(state: GameState, random: () => number = Math.ran
   return ok(newState);
 }
 
+export function endPeek(state: GameState): GameResult {
+  if (state.phase !== "peeking") return fail("No peeking right now");
+  const newState: GameState = {
+    ...state,
+    phase: "drawing",
+    peek: null,
+    turnIndex: nextTurn(state)
+  };
+
+  return ok(newState);
+}
+
 // TODO: Implement applyMove
 
 // ========= Helper functions =============
@@ -71,4 +83,8 @@ function findFreeSeat(state: GameState): number | null {
     }
   };
   return null;
+}
+
+export function nextTurn(state: GameState): number {
+  return (state.turnIndex + 1) % state.players.size;
 }

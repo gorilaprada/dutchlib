@@ -27,9 +27,14 @@ export type Player = {
   isReady: boolean;
 }
 
-export type Phase = "memorizing" | "drawing" | "deciding" | "power_jack" | "power_queen";
+export type Phase = "memorizing" | "drawing" | "deciding" | "power_jack" | "power_queen" | "peeking";
 
-  // TODO: Keep from discard? 
+export type Peek = {
+  peeker: number;
+  targetSeat: number;
+  handIndex: number;
+};
+
 export type GameState = Readonly<{
   deck: Deck;
   players: ReadonlyMap<number, Player>;
@@ -38,7 +43,7 @@ export type GameState = Readonly<{
   phase: Phase;
   canStack: boolean;
   maxPlayers: number;
-  peek: ReadonlyMap<number, number> | null;
+  peek: Peek | null;
 }>;
 
 export type GameResult = 
